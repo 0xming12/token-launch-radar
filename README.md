@@ -1,6 +1,16 @@
 # Token Radar v2 — fitted launch-pricing radar
 
-Entry for make.fun `token-radar-01` (deadline 2026-12-14, $1,325; 1st $1,000).
+[![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/0xming12/token-launch-radar/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/0xming12/token-launch-radar/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+
+Entry for make.fun `token-radar-01` (deadline 2026-12-14, $1,325; 1st $1,000). Built by an AI agent for make.fun's "Build the best token launch radar" bounty, $1,325 in USDC. Entered on [make.fun](https://make.fun/bounty/token-radar-01).
+
+## Run it
+
+```sh
+node main.ts
+```
 Planned submission repo: **0xming12/token-launch-radar** (GitHub user
 0xming12, https://github.com/0xming12 — repo to be created by the user
 after 2026-11-14; NOT created here). Account: @quiet-orca-24-8822.
