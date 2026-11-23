@@ -1,11 +1,11 @@
-// Token Radar v2 dashboard. Reads window.RADAR (data.js, written by main.ts
+// Token Radar v4 dashboard. Reads window.RADAR (data.js, written by main.ts
 // from the same board.json) and renders the board, filters, detail view and
 // the fitted model's methodology. No network: every byte shown is in data.js.
 (function () {
   'use strict';
   var DATA = window.RADAR; if (!DATA) return;
   var app = document.getElementById('board');
-  var state = { q: '', cat: 'all', chain: 'all', verdict: 'all', watch: false, tab: 'pre', sort: 'implied', dir: -1, sel: null };
+  var state = { q: '', cat: 'all', chain: 'all', verdict: 'all', watch: false, tab: 'pre', sort: 'implied_value_usd', dir: -1, sel: null };
   var fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   function usd(n) { if (n == null || !isFinite(n)) return 'n/a'; if (Math.abs(n) >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B'; if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M'; if (Math.abs(n) >= 1e3) return '$' + Math.round(n / 1e3) + 'K'; return fmt.format(n); }
   function pct(n) { if (n == null || !isFinite(n)) return 'n/a'; return (n > 0 ? '+' : '') + n.toFixed(1) + '%'; }
@@ -31,20 +31,20 @@
   }
   function header() {
     return el('header', null, el('div', null,
-      el('div', { class: 'brand', text: 'Token Radar · radar-2-fitted · snapshot ' + DATA.as_of }),
+      el('div', { class: 'brand', text: 'Token Radar · radar-4-robust · snapshot ' + DATA.as_of }),
       el('h1', { text: 'Which pre-token protocol is worth farming next?' }),
-      el('p', { class: 'lede sub', text: DATA.board_size + ' pre-token protocols ranked by fitted implied value — what a launch would be worth if the protocol launched at its peers\' price. Every multiple is fitted from the ' + DATA.fit.livePeersUsed + ' live-token protocols in this snapshot, never hard-coded by name. Implied values are order-of-magnitude estimates: the honest band is about x/4.' })),
+      el('p', { class: 'lede sub', text: DATA.board_size + ' pre-token protocols ranked by fitted implied value — what a launch would be worth if the protocol launched at its peers\' price. Every value term is fitted from the ' + DATA.fit.validation.peers + ' live-token protocols in this snapshot, never hard-coded by name. Implied values are order-of-magnitude estimates: the honest band is about x/4.' })),
       el('div', { class: 'sub', text: 'Source: ' + DATA.source + ' · Watchlist floor $' + (DATA.floor_usd / 1e6) + 'M' }));
   }
   function kpis() {
-    var k = DATA.kpi, f = DATA.fit;
+    var k = DATA.kpi, v = DATA.fit.validation;
     var items = [
       [DATA.board_size + ' rows', 'pre-token protocols ranked'],
       [DATA.watchlist_size + ' on watchlist', 'every one covered, floor not ceiling'],
       [usd(k.total_implied_usd), 'total fitted implied value'],
       [Math.round(k.median_odds * 100) + '%', 'median token odds (peer launch rate)'],
-      [k.farm_count + ' FARM', k.watch_count + ' WATCH · rest SKIP'],
-      [f.livePeersUsed + ' peers', 'live-token protocols fitted (of ' + f.livePeers + ' with a market cap)']];
+      [k.farm_count + ' FARM', k.watch_count + ' WATCH · ' + k.skip_count + ' SKIP'],
+      [v.cvMae742.toFixed(2) + ' log MAE', 'held-out error, 5-fold CV (seeds 7, 42)']];
     return el('div', { class: 'kpis' }, items.map(function (x) { return el('div', { class: 'kpi' }, el('b', { text: x[0] }), el('span', { text: x[1] })); }));
   }
   function controls() {
@@ -91,12 +91,23 @@
     return el('div', { class: 'panel' }, el('div', { class: 'table-wrap' }, el('table', null, el('caption', { class: 'sub', text: 'These protocols already trade, so their market cap is a fact, not a model. They are the peers the fitted multiples come from, and they are set aside from the pre-token ranking.' }), el('thead', null, el('tr', null, el('th', { text: 'Status' }), el('th', { text: 'Protocol' }), el('th', { class: 'num', text: 'TVL' }), el('th', { class: 'num', text: '7d' }), el('th', { class: 'num', text: 'Market cap' }), el('th', { text: 'Token' }))), tb)));
   }
   function methodPanel() {
-    var f = DATA.fit, v = f.validation;
+    var f = DATA.fit, v = f.validation, val = f.valuation;
+    function vrow(label, mae, best) { return el('tr', { class: best ? 'best' : '' }, el('td', { text: label }), el('td', { class: 'num', text: mae.toFixed(4) })); }
     return el('section', { class: 'panel' },
       el('h2', { text: 'How implied value is computed — and how wrong it can be' }),
-      el('div', { class: 'formula', text: 'implied = TVL × category_multiple × (1 + clamp(7d growth, -30, +60)% × 0.30) × (0.85 + min(age, 1095)/1095 × 0.20)' }),
-      el('p', { class: 'sub', text: 'category_multiple is the median market-cap / TVL of live-token protocols in the same category, shrunk toward the global median ' + f.globalMultiple.toFixed(3) + ' (10 pseudo-observations) and clamped to 0.02–1.50. Token odds blend the peer launch rate by category, TVL bucket and age bucket. No protocol name is special-cased; the same function scores every row, and the page recomputes each row from the same figures.' }),
-      el('p', { class: 'sub', text: 'Validation, held out twice before ranking: log-log regression R² = ' + v.r2_log + ' on 128 live protocols. Category-median model, mean absolute log error ' + v.heldout_mae_log_seed7 + ' (seed 7) and ' + v.heldout_mae_log_seed42 + ' (seed 42); time split (older → newer) ' + v.heldout_mae_log_time + '; flat 0.25× starter ' + v.starter_mae_log + '. Median absolute error is 81–90% — treat every implied value as ± about 4×, and farm the verdict, not the number.' }),
+      el('div', { class: 'formula', text: 'log(implied) = ' + val.intercept.toFixed(3) + ' + ' + val.tvlElasticity.toFixed(3) + ' × log(TVL / $50M) + category_offset + log(growth × maturity)' }),
+      el('p', { class: 'sub', text: 'A Huber-robust log-log regression on the ' + v.peers + ' live-token protocols in this snapshot (delta 0.85, 80 iterations). The TVL elasticity (' + val.tvlElasticity.toFixed(3) + ') and one offset per category are fitted, not assumed; offsets are shrunk toward 0 (5 pseudo-observations) so a category with one peer cannot swing the board. Fitting targets are winsorised to a market-cap/TVL multiple of 0.005–5, so five near-zero-cap records cannot drag the fit — predictions and all errors below use the raw values. Growth (1 + clamp(7d, -30, +60) × 0.003) and maturity (0.85 + min(age, 1095)/1095 × 0.20) are fixed constants: fitting them as free coefficients made every holdout worse, and the model says so rather than pretending they were fitted. No protocol name is special-cased; the same function scores every row.' }),
+      el('h3', { text: 'Holdout validation — mean absolute log error, lower is better' }),
+      el('div', { class: 'table-wrap' }, el('table', { class: 'valtable' },
+        el('thead', null, el('tr', null, el('th', { text: 'Validation' }), el('th', { class: 'num', text: 'MAE (log)' }))),
+        el('tbody', null,
+          vrow('This model — 5-fold CV by token, seeds 7 + 42', v.cvMae742, true),
+          vrow('This model — 5-fold CV by token, fresh seeds 123 + 2024', v.cvMae1232024, false),
+          vrow('This model — walk-forward, oldest 75% fit, youngest 25% tested', v.walkForwardMae, false),
+          vrow('This model — leave-one-token-out, all ' + v.peers + ' peers', v.lotoMae, false),
+          vrow('Category-median model (v2) — same 5-fold CV, seeds 7 + 42', v.v2CvMae, false),
+          vrow('Flat 0.25× starter — same 5-fold CV, seeds 7 + 42', v.starterCvMae, false)))),
+      el('p', { class: 'sub', text: 'In-sample log-log R² = ' + v.r2Usable.toFixed(4) + ' on the ' + v.usablePeers + ' usable peers (multiple 0.005–5), ' + v.r2All.toFixed(4) + ' on all ' + v.peers + ' peers; median error factor ×' + v.cvMedianFactor.toFixed(2) + ' on the held-out folds. Market-cap/TVL is extremely dispersed, so treat every implied value as ± about 4×, and farm the verdict, not the number. Verdicts are cut on expected value (implied × token odds): FARM needs odds ≥ 35%, integrity ≥ 80 and expected value ≥ $10M; WATCH needs odds ≥ 35%, integrity ≥ 65 and expected value ≥ $3M; the rest is SKIP.' }),
       el('p', { class: 'sub', text: 'All ' + DATA.total_protocols + ' protocols in the snapshot are accounted for: ' + DATA.board_size + ' ranked pre-token rows, ' + DATA.live_total + ' live-token protocols set aside (' + DATA.live_size + ' shown; their market caps are facts, not models), and ' + DATA.excluded_pre_token + ' pre-token protocols excluded as wrapped, staked, bridged, CEX or versioned products of a token that already trades — listed in the model, never ranked as launches.' }),
       el('div', { class: 'warn', text: 'A protocol that records no token may still have one its DefiLlama record does not carry. Implied value is this entry\'s claim, never a price, and never a prediction that a token will launch, or when.' }));
   }
@@ -107,7 +118,9 @@
     dialog.appendChild(el('div', { class: 'detail-head' }, el('div', null, el('span', { class: 'brand', text: 'Rank ' + row.rank + ' of ' + DATA.board_size + ' · ' + row.verdict }), el('h2', { id: 'detail-title', text: row.name }), el('p', { class: 'sub', text: (row.category || 'Other') + ' on ' + (row.chains || []).join(', ') + ' · records no token' })), el('button', { class: 'close', type: 'button', text: 'Close', onclick: function () { dialog.close(); } })));
     dialog.appendChild(el('section', null, el('h3', { text: 'Model breakdown' }), el('div', { class: 'equation' },
       el('div', null, el('span', { text: 'TVL' }), el('b', { text: usd(row.tvl_usd) })),
-      el('div', null, el('span', { text: 'Category multiple' }), el('b', { text: String(row.model.category_multiple) })),
+      el('div', null, el('span', { text: 'Peer base value' }), el('b', { text: usd(row.model.peer_base_usd) })),
+      el('div', null, el('span', { text: 'Priced peers in category' }), el('b', { text: String(row.model.category_peer_count) })),
+      el('div', null, el('span', { text: 'TVL elasticity (fitted)' }), el('b', { text: String(row.model.tvl_elasticity) })),
       el('div', null, el('span', { text: '7d growth' }), el('b', { text: pct(row.change_7d) })),
       el('div', null, el('span', { text: 'Growth × maturity' }), el('b', { text: row.model.growth_multiplier + ' × ' + row.model.maturity_multiplier })),
       el('div', null, el('span', { text: 'Age with no token' }), el('b', { text: age(row.age_days) })),
@@ -125,7 +138,7 @@
     shell.appendChild(header()); shell.appendChild(kpis()); shell.appendChild(controls()); shell.appendChild(tabs());
     shell.appendChild(state.tab === 'pre' ? boardTable() : liveTable());
     if (state.tab === 'pre') shell.appendChild(methodPanel());
-    shell.appendChild(el('footer', { text: 'Token Radar v2 · fitted from DefiLlama snapshot ' + DATA.as_of + ' · ' + DATA.board_size + ' pre-token rows, ' + DATA.live_size + ' live peers shown · Implied values are estimates, not prices.' }));
+    shell.appendChild(el('footer', { text: 'Token Radar v4 · fitted from DefiLlama snapshot ' + DATA.as_of + ' · ' + DATA.board_size + ' pre-token rows, ' + DATA.live_size + ' live peers shown · Implied values are estimates, not prices.' }));
     app.appendChild(shell);
     if (!dialog.isConnected) app.appendChild(dialog);
     app.setAttribute('aria-busy', 'false');
